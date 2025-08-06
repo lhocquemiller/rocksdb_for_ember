@@ -122,6 +122,12 @@ double tokutime_to_seconds(tokutime_t)  __attribute__((__visibility__("default")
 
 // Get the value of tokutime for right now.  We want this to be fast, so we
 // expose the implementation as RDTSC.
+
+// Note: this is a workaround for armv7 architectures
+#if defined(__arm__)
+#include <time.h>
+#endif
+
 static inline tokutime_t toku_time_now(void) {
 #if defined(__x86_64__) || defined(__i386__)
   uint32_t lo, hi;
@@ -158,10 +164,15 @@ static inline tokutime_t toku_time_now(void) {
   unsigned long result;
   asm volatile("rdtime.d\t%0,$r0" : "=r"(result));
   return result;
+#elif defined(__arm__)
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (tokutime_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 #else
 #error No timer implementation for this platform
 #endif
 }
+
 
 static inline uint64_t toku_current_time_microsec(void) {
   struct timeval t;
